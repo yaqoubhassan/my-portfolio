@@ -1,37 +1,15 @@
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { FiClock, FiArrowRight } from 'react-icons/fi';
-
-const posts = [
-  {
-    title: 'Building a Custom OCPP 1.6 WebSocket Server from Scratch',
-    excerpt:
-      'How I designed and implemented a production-grade OCPP server to manage real-time communication with 18+ EV charging stations across Ghana.',
-    date: 'Coming Soon',
-    readTime: '10 min read',
-    tags: ['WebSocket', 'OCPP', 'Node.js'],
-  },
-  {
-    title: 'Connecting 12+ Microservices: Lessons from the MTN SSP Frontend',
-    excerpt:
-      'Retry logic, circuit breakers, and error normalization — the patterns I used to build a reliable frontend for MTN Ghana\'s self-service portal.',
-    date: 'Coming Soon',
-    readTime: '8 min read',
-    tags: ['React', 'Architecture', 'TypeScript'],
-  },
-  {
-    title: 'From Monolith to Monorepo: Scaling AgriTrack Africa',
-    excerpt:
-      'How I structured a monorepo with Next.js, React Native, and NestJS to serve a cross-platform farm management system with 15 modules.',
-    date: 'Coming Soon',
-    readTime: '7 min read',
-    tags: ['NestJS', 'Next.js', 'Monorepo'],
-  },
-];
+import { blogPosts } from '../data/blogPosts';
 
 export default function Blog() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-100px' });
+
+  // Show latest 3 posts
+  const latestPosts = [...blogPosts].reverse().slice(0, 3);
 
   return (
     <section id="blog" className="relative py-16 sm:py-24 px-5 sm:px-6" aria-label="Blog">
@@ -56,59 +34,79 @@ export default function Blog() {
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {posts.map((post, idx) => (
+          {latestPosts.map((post, idx) => (
             <motion.article
-              key={post.title}
+              key={post.slug}
               initial={{ opacity: 0, y: 30 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.2 + idx * 0.1 }}
-              className="group flex flex-col p-6 rounded-2xl border transition-all duration-300 hover:border-primary-500/30"
-              style={{
-                backgroundColor: 'var(--bg-card)',
-                borderColor: 'var(--border-primary)',
-              }}
             >
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {post.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-[10px] font-medium px-2 py-0.5 rounded-full text-primary-300 bg-primary-600/10 border border-primary-500/20"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              {/* Title */}
-              <h3
-                className="text-lg font-bold mb-2 leading-snug"
-                style={{ color: 'var(--text-primary)' }}
+              <Link
+                to={`/blog/${post.slug}`}
+                className="group flex flex-col h-full p-6 rounded-2xl border transition-all duration-300 hover:border-primary-500/30"
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  borderColor: 'var(--border-primary)',
+                }}
               >
-                {post.title}
-              </h3>
+                {/* Tags */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {post.tags.slice(0, 3).map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-[10px] font-medium px-2 py-0.5 rounded-full text-primary-300 bg-primary-600/10 border border-primary-500/20"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
 
-              {/* Excerpt */}
-              <p className="text-sm leading-relaxed mb-4 flex-grow" style={{ color: 'var(--text-muted)' }}>
-                {post.excerpt}
-              </p>
+                {/* Title */}
+                <h3
+                  className="text-lg font-bold mb-2 leading-snug group-hover:text-primary-400 transition-colors"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {post.title}
+                </h3>
 
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: 'var(--border-primary)' }}>
-                <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-faint)' }}>
-                  <span>{post.date}</span>
-                  <span className="flex items-center gap-1">
-                    <FiClock size={11} />
-                    {post.readTime}
+                {/* Excerpt */}
+                <p className="text-sm leading-relaxed mb-4 grow" style={{ color: 'var(--text-muted)' }}>
+                  {post.description}
+                </p>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: 'var(--border-primary)' }}>
+                  <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-faint)' }}>
+                    <span>{new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span className="flex items-center gap-1">
+                      <FiClock size={11} />
+                      {post.readTime}
+                    </span>
+                  </div>
+                  <span className="text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <FiArrowRight size={14} />
                   </span>
                 </div>
-                <span className="text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <FiArrowRight size={14} />
-                </span>
-              </div>
+              </Link>
             </motion.article>
           ))}
         </div>
+
+        {/* View all link */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={isInView ? { opacity: 1 } : {}}
+          transition={{ delay: 0.6 }}
+          className="text-center mt-10"
+        >
+          <Link
+            to="/blog"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors"
+          >
+            View all {blogPosts.length} articles
+            <FiArrowRight size={14} />
+          </Link>
+        </motion.div>
       </div>
     </section>
   );

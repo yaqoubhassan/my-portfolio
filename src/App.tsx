@@ -3,6 +3,8 @@ import { ThemeProvider } from './hooks/useTheme';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import ProjectDetail from './pages/ProjectDetail';
+import BlogList from './pages/BlogList';
+import BlogPost from './pages/BlogPost';
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/projects/:slug" element={<ProjectDetail />} />
+            <Route path="/blog" element={<BlogList />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
           </Routes>
         </div>
       </BrowserRouter>
