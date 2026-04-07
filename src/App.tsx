@@ -1,0 +1,26 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from './hooks/useTheme';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import ProjectDetail from './pages/ProjectDetail';
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <BrowserRouter>
+        <div className="bg-themed min-h-screen font-sans antialiased" style={{ color: 'var(--text-primary)' }}>
+          {/* Skip to content — accessibility */}
+          <a href="#about" className="skip-to-content">
+            Skip to main content
+          </a>
+
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/projects/:slug" element={<ProjectDetail />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </ThemeProvider>
+  );
+}
