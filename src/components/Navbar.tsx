@@ -35,7 +35,10 @@ export default function Navbar() {
     if (location.pathname !== '/') {
       navigate('/', { state: { scrollTo: id } });
     } else {
-      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+      // Delay scroll to let mobile menu close animation finish
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   };
 
