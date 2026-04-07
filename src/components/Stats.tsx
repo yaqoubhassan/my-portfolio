@@ -13,9 +13,9 @@ export default function Stats() {
   const isInView = useInView(ref, { once: true, margin: '-50px' });
 
   return (
-    <section className="relative py-16 px-6" aria-label="Key metrics">
+    <section className="relative py-10 sm:py-16 px-5 sm:px-6" aria-label="Key metrics">
       <div
-        className="max-w-5xl mx-auto rounded-2xl border p-8 sm:p-10"
+        className="max-w-5xl mx-auto rounded-2xl border p-6 sm:p-8 md:p-10"
         ref={ref}
         style={{
           backgroundColor: 'var(--bg-card)',

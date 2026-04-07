@@ -8,7 +8,7 @@ export default function Hero() {
   return (
     <section
       id="home"
-      className="relative min-h-screen flex items-center justify-center overflow-hidden"
+      className="relative min-h-[100svh] flex items-center justify-center overflow-hidden pt-20 pb-24 sm:pt-0 sm:pb-0"
       aria-label="Introduction"
     >
       {/* Animated background gradient orbs */}
@@ -29,7 +29,7 @@ export default function Hero() {
         }}
       />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
+      <div className="relative z-10 max-w-4xl mx-auto px-5 sm:px-6 text-center">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -39,7 +39,7 @@ export default function Hero() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: 'spring', bounce: 0.4 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-600/10 border border-primary-500/20 text-primary-400 text-sm font-medium mb-8"
+            className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary-600/10 border border-primary-500/20 text-primary-400 text-xs sm:text-sm font-medium mb-6 sm:mb-8"
           >
             <span className="w-2 h-2 bg-accent-500 rounded-full animate-pulse" />
             Available for opportunities
@@ -50,7 +50,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight mb-6"
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-4 sm:mb-6"
           style={{ color: 'var(--text-primary)' }}
         >
           Hi, I'm{' '}
@@ -63,7 +63,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
+          className="text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed"
           style={{ color: 'var(--text-muted)' }}
         >
           Senior Fullstack Developer with 8+ years of experience building
@@ -76,7 +76,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex flex-wrap items-center justify-center gap-4 mb-12"
+          className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-8 sm:mb-12"
         >
           <a
             href="#contact"
@@ -84,7 +84,7 @@ export default function Hero() {
               e.preventDefault();
               document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="group inline-flex items-center gap-2 px-8 py-3.5 bg-primary-600 hover:bg-primary-500 text-white rounded-full font-medium transition-all duration-300 shadow-lg shadow-primary-600/25 hover:shadow-primary-500/40 hover:-translate-y-0.5"
+            className="group inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 bg-primary-600 hover:bg-primary-500 text-white rounded-full text-sm sm:text-base font-medium transition-all duration-300 shadow-lg shadow-primary-600/25 hover:shadow-primary-500/40 hover:-translate-y-0.5"
           >
             Get In Touch
             <FiMail className="group-hover:rotate-12 transition-transform" />
@@ -92,7 +92,7 @@ export default function Hero() {
           <a
             href="/Yakubu_Alhassan_CV.pdf"
             download
-            className="group inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-medium transition-all duration-300 hover:-translate-y-0.5 border"
+            className="group inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 rounded-full text-sm sm:text-base font-medium transition-all duration-300 hover:-translate-y-0.5 border"
             style={{
               backgroundColor: 'var(--bg-subtle)',
               borderColor: 'var(--border-primary)',
@@ -108,7 +108,7 @@ export default function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.5 }}
-          className="flex items-center justify-center gap-4"
+          className="flex items-center justify-center gap-3 sm:gap-4"
         >
           {[
             { icon: FiGithub, href: 'https://github.com/yaqoubhassan', label: 'GitHub' },
@@ -122,7 +122,7 @@ export default function Hero() {
               rel="noopener noreferrer"
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.95 }}
-              className="p-3 rounded-full border transition-colors hover:border-primary-500/50 hover:bg-primary-600/10"
+              className="p-2.5 sm:p-3 rounded-full border transition-colors hover:border-primary-500/50 hover:bg-primary-600/10"
               style={{
                 backgroundColor: 'var(--bg-subtle)',
                 borderColor: 'var(--border-primary)',
@@ -130,19 +130,18 @@ export default function Hero() {
               }}
               aria-label={social.label}
             >
-              <social.icon size={20} />
+              <social.icon size={18} />
             </motion.a>
           ))}
         </motion.div>
-
       </div>
 
-      {/* Scroll indicator — positioned against the section */}
+      {/* Scroll indicator — hidden on mobile, visible on sm+ */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.5 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
+        className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-10 hidden sm:block"
         aria-hidden="true"
       >
         <div

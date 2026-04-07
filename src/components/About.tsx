@@ -30,25 +30,25 @@ export default function About() {
   const isInView = useInView(ref, { once: true, margin: '-100px' });
 
   return (
-    <section id="about" className="relative py-32 px-6" aria-label="About me">
+    <section id="about" className="relative py-16 sm:py-24 px-5 sm:px-6" aria-label="About me">
       <div className="max-w-6xl mx-auto" ref={ref}>
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-14"
         >
           <span className="text-primary-400 text-sm font-mono font-medium tracking-wider uppercase">
             About Me
           </span>
-          <h2 className="text-4xl sm:text-5xl font-bold mt-4" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 sm:mt-4" style={{ color: 'var(--text-primary)' }}>
             Turning Ideas Into{' '}
             <span className="gradient-text">Digital Reality</span>
           </h2>
         </motion.div>
 
         {/* Photo + Bio */}
-        <div className="grid md:grid-cols-5 gap-12 items-center mb-16">
+        <div className="grid md:grid-cols-5 gap-8 sm:gap-12 items-center mb-10 sm:mb-14">
           {/* Profile photo */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -57,7 +57,7 @@ export default function About() {
             className="md:col-span-2 flex justify-center"
           >
             <div className="relative">
-              <div className="w-64 h-64 sm:w-72 sm:h-72 rounded-2xl overflow-hidden border-2 border-primary-500/20 shadow-xl shadow-primary-600/10">
+              <div className="w-48 h-48 sm:w-64 sm:h-64 md:w-72 md:h-72 rounded-2xl overflow-hidden border-2 border-primary-500/20 shadow-xl shadow-primary-600/10">
                 <img
                   src="/profile.jpg"
                   alt="Yakubu Alhassan"
@@ -66,7 +66,7 @@ export default function About() {
                 />
               </div>
               {/* Decorative accent */}
-              <div className="absolute -z-10 -bottom-3 -right-3 w-64 h-64 sm:w-72 sm:h-72 rounded-2xl border-2 border-primary-500/10" />
+              <div className="absolute -z-10 -bottom-3 -right-3 w-48 h-48 sm:w-64 sm:h-64 md:w-72 md:h-72 rounded-2xl border-2 border-primary-500/10" />
             </div>
           </motion.div>
 
@@ -77,13 +77,13 @@ export default function About() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="md:col-span-3"
           >
-            <p className="leading-relaxed text-lg mb-6" style={{ color: 'var(--text-muted)' }}>
+            <p className="leading-relaxed text-base sm:text-lg mb-4 sm:mb-6" style={{ color: 'var(--text-muted)' }}>
               I'm a Senior Fullstack Developer based in Accra, Ghana, with over
               8 years of experience crafting production-grade web, mobile, and
               real-time systems. I thrive on solving complex technical challenges
               and shipping products that make a real impact.
             </p>
-            <p className="leading-relaxed text-lg mb-6" style={{ color: 'var(--text-muted)' }}>
+            <p className="leading-relaxed text-base sm:text-lg mb-4 sm:mb-6" style={{ color: 'var(--text-muted)' }}>
               Currently, I serve as the sole developer at{' '}
               <span className="font-medium" style={{ color: 'var(--text-primary)' }}>DriveEV Ghana</span>,
               where I single-handedly maintain and enhance the entire XChargeEV
@@ -91,7 +91,7 @@ export default function About() {
               admin dashboard, Ionic Vue mobile app, PWA, and a custom OCPP 1.6
               WebSocket server.
             </p>
-            <p className="leading-relaxed text-lg" style={{ color: 'var(--text-muted)' }}>
+            <p className="leading-relaxed text-base sm:text-lg" style={{ color: 'var(--text-muted)' }}>
               I also lead a team at{' '}
               <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Dexwin Tech</span>,
               building the MTN Self-Service Portal for MTN Ghana's customer base

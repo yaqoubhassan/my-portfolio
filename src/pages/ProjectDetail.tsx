@@ -34,7 +34,7 @@ export default function ProjectDetail() {
 
   return (
     <>
-      <div className="min-h-screen pt-24 pb-20 px-6">
+      <div className="min-h-screen pt-20 sm:pt-24 pb-16 sm:pb-20 px-5 sm:px-6">
         <div className="max-w-4xl mx-auto">
           {/* Back link */}
           <motion.div
@@ -44,7 +44,7 @@ export default function ProjectDetail() {
           >
             <Link
               to="/#projects"
-              className="inline-flex items-center gap-2 text-sm mb-10 transition-colors hover:text-primary-400"
+              className="inline-flex items-center gap-2 text-sm mb-6 sm:mb-10 transition-colors hover:text-primary-400"
               style={{ color: 'var(--text-muted)' }}
             >
               <FiArrowLeft size={14} />
@@ -57,7 +57,7 @@ export default function ProjectDetail() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-12"
+            className="mb-8 sm:mb-12"
           >
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <span className="text-primary-400 text-sm font-mono font-medium tracking-wider uppercase">
@@ -75,7 +75,7 @@ export default function ProjectDetail() {
                 </a>
               )}
             </div>
-            <h1 className="text-4xl sm:text-5xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4" style={{ color: 'var(--text-primary)' }}>
               {project.title}
             </h1>
             <p className="text-xl leading-relaxed" style={{ color: 'var(--text-muted)' }}>
@@ -113,7 +113,7 @@ export default function ProjectDetail() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.15 }}
-            className="mb-14"
+            className="mb-10 sm:mb-14"
           >
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Overview</h2>
             <p className="text-lg leading-relaxed" style={{ color: 'var(--text-muted)' }}>
@@ -126,7 +126,7 @@ export default function ProjectDetail() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-14"
+            className="mb-10 sm:mb-14"
           >
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Tech Stack</h2>
             <div className="flex flex-wrap gap-2">
@@ -146,7 +146,7 @@ export default function ProjectDetail() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.25 }}
-            className="mb-14"
+            className="mb-10 sm:mb-14"
           >
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Key Highlights</h2>
             <ul className="space-y-3">
@@ -166,7 +166,7 @@ export default function ProjectDetail() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="mb-14"
+            className="mb-10 sm:mb-14"
           >
             <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Features</h2>
             <div className="grid sm:grid-cols-2 gap-3">
@@ -191,7 +191,7 @@ export default function ProjectDetail() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.35 }}
-            className="mb-14"
+            className="mb-10 sm:mb-14"
           >
             <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
               Challenges & Solutions
@@ -230,7 +230,7 @@ export default function ProjectDetail() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="mb-14"
+              className="mb-10 sm:mb-14"
             >
               <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Screenshots</h2>
               <div className="grid sm:grid-cols-2 gap-4">

@@ -102,7 +102,7 @@ export default function Projects() {
   const isInView = useInView(ref, { once: true, margin: '-100px' });
 
   return (
-    <section id="projects" className="relative py-32 px-6" aria-label="Featured projects">
+    <section id="projects" className="relative py-16 sm:py-24 px-5 sm:px-6" aria-label="Featured projects">
       <div className="absolute top-1/2 right-0 w-96 h-96 bg-primary-600/5 rounded-full blur-[150px]" />
 
       <div className="max-w-6xl mx-auto" ref={ref}>
@@ -110,12 +110,12 @@ export default function Projects() {
           initial={{ opacity: 0, y: 40 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-14"
         >
           <span className="text-primary-400 text-sm font-mono font-medium tracking-wider uppercase">
             Portfolio
           </span>
-          <h2 className="text-4xl sm:text-5xl font-bold mt-4" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 sm:mt-4" style={{ color: 'var(--text-primary)' }}>
             Featured <span className="gradient-text">Projects</span>
           </h2>
         </motion.div>
@@ -141,7 +141,7 @@ export default function Projects() {
                     src={project.image}
                     alt={project.title}
                     loading="lazy"
-                    className="w-full h-full object-cover object-left-top group-hover:scale-105 transition-transform duration-700"
+                    className="w-full h-full object-cover object-top-left group-hover:scale-105 transition-transform duration-700"
                   />
                   <div
                     className="absolute inset-0"

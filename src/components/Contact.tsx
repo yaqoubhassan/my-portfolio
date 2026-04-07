@@ -123,7 +123,7 @@ export default function Contact() {
   ];
 
   return (
-    <section id="contact" className="relative py-32 px-6" aria-label="Contact">
+    <section id="contact" className="relative py-16 sm:py-24 px-5 sm:px-6" aria-label="Contact">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-primary-600/5 rounded-full blur-[150px]" />
 
       <div className="max-w-5xl mx-auto" ref={ref}>
@@ -131,12 +131,12 @@ export default function Contact() {
           initial={{ opacity: 0, y: 40 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-14"
         >
           <span className="text-primary-400 text-sm font-mono font-medium tracking-wider uppercase">
             Get In Touch
           </span>
-          <h2 className="text-4xl sm:text-5xl font-bold mt-4" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 sm:mt-4" style={{ color: 'var(--text-primary)' }}>
             Let's <span className="gradient-text">Connect</span>
           </h2>
           <p className="mt-4 max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>

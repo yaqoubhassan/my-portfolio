@@ -22,7 +22,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="border-t pt-16 pb-8 px-6" style={{ borderColor: 'var(--border-primary)' }}>
+    <footer className="border-t pt-12 sm:pt-16 pb-8 px-5 sm:px-6" style={{ borderColor: 'var(--border-primary)' }}>
       <div className="max-w-6xl mx-auto">
         {/* Top section */}
         <div className="grid sm:grid-cols-3 gap-10 mb-12">
