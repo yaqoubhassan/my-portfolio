@@ -25,29 +25,7 @@ The device list comes from one API. Balance data comes from another — and it's
 
 Our initial implementation:
 
-```typescript
-// V1: The blocking approach
-function BroadbandPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadEverything() {
-      setLoading(true);
-      const devices = await fetchDevices();
-      const balances = await Promise.all(
-        devices.map(d => fetchBalance(d.id))
-      );
-      setData(mergeDevicesWithBalances(devices, balances));
-      setLoading(false);
-    }
-    loadEverything();
-  }, []);
-
-  if (loading) return <FullPageSpinner />;
-  return <DeviceGrid data={data} />;
-}
-```
+In our initial implementation, the page component set a loading flag to true on mount, then fetched the device list from one API. Once that returned, it issued balance requests for every device in parallel and waited for all of them to complete. Only after every single balance had been retrieved did it merge the results together, clear the loading flag, and render the page. Until that moment, the user saw nothing but a full-screen spinner.
 
 The user experience: stare at a spinner for 3-6 seconds, then everything appears at once.
 
@@ -59,70 +37,11 @@ The `Promise.all` helps — balances load in parallel rather than sequentially. 
 
 The fix sounds obvious in retrospect: **render the device list immediately, then fill in balances as they arrive**.
 
-```typescript
-// V2: Progressive loading
-function BroadbandPage() {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [loadingDevices, setLoadingDevices] = useState(true);
-  const [loadingBalances, setLoadingBalances] = useState<Set<string>>(new Set());
+The revised approach splits the work into two phases. In phase one, the component fetches only the device list and renders it immediately — showing device names, identifiers, and statuses. While this appears on screen, phase two begins in the background: the component iterates through the device list and fetches each device's balance independently. A set data structure tracks which devices currently have balance requests in flight.
 
-  // Step 1: Load device list
-  useEffect(() => {
-    async function loadDevices() {
-      setLoadingDevices(true);
-      const deviceList = await fetchDevices();
-      setDevices(deviceList);
-      setLoadingDevices(false);
+For each device, the balance request is issued, and when it returns, only that specific device's entry in the list is updated with the new balance data. If a balance request fails, that individual device is marked with an error flag rather than crashing the entire page. After each request completes (success or failure), that device's identifier is removed from the loading set.
 
-      // Step 2: Load balances in background
-      loadBalancesProgressively(deviceList);
-    }
-    loadDevices();
-  }, []);
-
-  // Load each balance independently — don't wait for others
-  async function loadBalancesProgressively(deviceList: Device[]) {
-    for (const device of deviceList) {
-      // Mark this device's balance as loading
-      setLoadingBalances(prev => new Set(prev).add(device.id));
-
-      try {
-        const balance = await fetchBalance(device.id);
-        // Update just this device — others remain unchanged
-        setDevices(prev =>
-          prev.map(d => d.id === device.id ? { ...d, balance } : d)
-        );
-      } catch (error) {
-        // Mark as failed — don't crash the whole page
-        setDevices(prev =>
-          prev.map(d => d.id === device.id ? { ...d, balanceError: true } : d)
-        );
-      } finally {
-        // Clear loading state for this specific device
-        setLoadingBalances(prev => {
-          const next = new Set(prev);
-          next.delete(device.id);
-          return next;
-        });
-      }
-    }
-  }
-
-  if (loadingDevices) return <DeviceListSkeleton />;
-
-  return (
-    <DeviceGrid>
-      {devices.map(device => (
-        <DeviceCard
-          key={device.id}
-          device={device}
-          isLoadingBalance={loadingBalances.has(device.id)}
-        />
-      ))}
-    </DeviceGrid>
-  );
-}
-```
+The rendering logic checks whether the initial device list is still loading (showing a skeleton placeholder if so), then maps over the device list to render individual cards. Each card receives a flag indicating whether its specific balance is still loading, determined by checking membership in the loading set.
 
 The user experience now: device cards appear almost instantly (the list API is fast). Each card shows a small balance spinner that resolves independently. The user can start reading device names, checking statuses, and even interacting with cards while balances trickle in.
 
@@ -134,9 +53,7 @@ The user experience now: device cards appear almost instantly (the list API is f
 
 The most reusable pattern from this work is using a `Set<string>` to track which items are loading:
 
-```typescript
-const [loadingBalances, setLoadingBalances] = useState<Set<string>>(new Set());
-```
+We declare a piece of state that holds a set of strings, initialized as empty. Each string in the set represents the identifier of an item currently being fetched.
 
 Compare this to the alternatives:
 
@@ -162,59 +79,9 @@ When a balance API responds in 50ms (cache hit, nearby CDN, fast backend), the l
 
 We implemented a minimum display duration for loading indicators:
 
-```typescript
-function useMinimumDuration(isLoading: boolean, minMs: number = 100): boolean {
-  const [showLoading, setShowLoading] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startTimeRef = useRef<number>(0);
+We built a custom hook that wraps a boolean loading flag and ensures the loading indicator remains visible for at least a specified minimum duration (defaulting to 100 milliseconds). When loading begins, the hook immediately reports that the indicator should be shown and records the start time. When the underlying loading flag clears, the hook calculates how much time has elapsed. If the minimum duration has not yet been reached, it sets a timer to delay hiding the indicator by the remaining time. If the minimum has already passed, it hides the indicator immediately. The hook also cleans up any pending timers if the component unmounts.
 
-  useEffect(() => {
-    if (isLoading) {
-      // Loading started — show indicator immediately
-      setShowLoading(true);
-      startTimeRef.current = Date.now();
-    } else if (showLoading) {
-      // Loading ended — ensure minimum display time
-      const elapsed = Date.now() - startTimeRef.current;
-      const remaining = Math.max(0, minMs - elapsed);
-
-      if (remaining > 0) {
-        timerRef.current = setTimeout(() => setShowLoading(false), remaining);
-      } else {
-        setShowLoading(false);
-      }
-    }
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [isLoading]);
-
-  return showLoading;
-}
-```
-
-Usage:
-
-```typescript
-function DeviceCard({ device, isLoadingBalance }: Props) {
-  // Show spinner for at least 100ms, even if the API responds instantly
-  const showSpinner = useMinimumDuration(isLoadingBalance, 100);
-
-  return (
-    <div className="device-card">
-      <h3>{device.name}</h3>
-      {showSpinner ? (
-        <BalanceSpinner />
-      ) : device.balanceError ? (
-        <BalanceError onRetry={() => retryBalance(device.id)} />
-      ) : (
-        <BalanceDisplay value={device.balance} />
-      )}
-    </div>
-  );
-}
-```
+In practice, each device card passes its loading flag through this hook. The card then conditionally renders either a balance spinner (if the minimum-duration flag says loading should be shown), an error state with a retry option (if the balance request failed), or the actual balance value (once loaded). This eliminates the single-frame flicker that would otherwise occur when a fast API response causes a spinner to flash and vanish before the user can perceive it.
 
 **Why 100ms?** It's based on research into human perception thresholds. Anything under ~100ms is perceived as instantaneous — the spinner appears and disappears so fast the brain doesn't register a state change. Above 100ms, the user has time to recognize "this is loading" and then see it resolve, which feels smooth rather than glitchy.
 
@@ -224,21 +91,7 @@ function DeviceCard({ device, isLoadingBalance }: Props) {
 
 For the initial page load (before any devices are available), we replaced the full-screen spinner with **skeleton screens** — gray placeholder shapes that mimic the layout of the real content:
 
-```tsx
-function DeviceListSkeleton() {
-  return (
-    <div className="device-grid">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="device-card animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-          <div className="h-3 bg-gray-200 rounded w-1/2 mb-4" />
-          <div className="h-8 bg-gray-200 rounded w-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
-```
+The skeleton component renders a grid of placeholder cards that mimic the layout of real device cards. Each placeholder contains gray rectangular shapes that match the approximate dimensions of a device name, a subtitle, and a balance display area. A pulsing animation gives the user a visual cue that content is being loaded. We render three placeholder cards by default, which provides a sense of the page structure before any data has arrived.
 
 Why skeletons over spinners?
 
@@ -261,31 +114,7 @@ Some interactions shouldn't wait for the server at all. When a user renames a br
 
 **Optimistic updating** means updating the UI immediately with the expected result, then syncing with the server in the background:
 
-```typescript
-async function handleNicknameUpdate(deviceId: string, newNickname: string) {
-  // 1. Update UI immediately — don't wait for API
-  setDevices(prev =>
-    prev.map(d => d.id === deviceId ? { ...d, nickname: newNickname } : d)
-  );
-
-  // 2. Show a subtle saving indicator
-  setSavingNickname(deviceId);
-
-  try {
-    // 3. Sync to backend
-    await deviceService.updateNickname(deviceId, newNickname);
-  } catch (error) {
-    // 4. Revert on failure — restore the old nickname
-    setDevices(prev =>
-      prev.map(d => d.id === deviceId ? { ...d, nickname: d.previousNickname } : d)
-    );
-    showErrorToast('Failed to save nickname. Please try again.');
-  } finally {
-    // 5. Clear saving indicator
-    setSavingNickname(null);
-  }
-}
-```
+The nickname update handler follows a five-step optimistic pattern. First, it immediately updates the device list in local state, replacing the old nickname with the new one so the UI reflects the change without delay. Second, it sets a flag indicating which device is currently being saved, which drives a subtle "Saving..." indicator. Third, it issues the actual API call to persist the change on the backend. If the API call succeeds, the saving indicator is simply cleared. If it fails, the handler reverts the device's nickname back to its previous value in local state and displays an error notification asking the user to try again. In all cases, the saving indicator is cleared at the end.
 
 The UX flow:
 1. User types a new nickname and hits save
@@ -302,50 +131,9 @@ The "Saving..." indicator only appears if the API takes longer than expected. Fo
 
 For operations that involve multiple sequential steps (like loading balances for 10+ devices), we added progress tracking:
 
-```typescript
-function useProgressiveLoader<T>(
-  items: T[],
-  loadItem: (item: T) => Promise<void>
-) {
-  const [completed, setCompleted] = useState(0);
-  const [total, setTotal] = useState(0);
+We built a reusable progressive loader hook that accepts a list of items and a function to load each one. It tracks how many items have been processed and the total count, deriving a percentage-based progress value. When invoked, it iterates through the list, calling the load function for each item. If any individual item fails, the error is logged but processing continues with the remaining items. After each item (success or failure), the completed counter increments. The hook exposes the progress percentage and a boolean indicating whether loading is still in progress.
 
-  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-  async function loadAll(itemList: T[]) {
-    setTotal(itemList.length);
-    setCompleted(0);
-
-    for (const item of itemList) {
-      try {
-        await loadItem(item);
-      } catch {
-        // Log but don't stop — continue loading remaining items
-      }
-      setCompleted(prev => prev + 1);
-    }
-  }
-
-  return { loadAll, progress, isLoading: completed < total && total > 0 };
-}
-```
-
-This powers a subtle progress bar at the top of the page:
-
-```tsx
-function BalanceProgressBar({ progress }: { progress: number }) {
-  if (progress >= 100) return null;
-
-  return (
-    <div className="h-1 w-full bg-gray-100 rounded overflow-hidden">
-      <div
-        className="h-full bg-blue-500 transition-all duration-300"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
-  );
-}
-```
+This powers a subtle progress bar at the top of the page — a thin horizontal bar (just a few pixels tall) that fills from left to right as items complete. The fill width is driven by the progress percentage, and a smooth transition animation makes the increments feel fluid rather than jumpy. Once all items have loaded and progress reaches full completion, the bar disappears entirely.
 
 The bar is intentionally minimal — 4 pixels tall, no text, no percentage. It communicates "we're still loading some data" without demanding attention. When all balances are loaded, it disappears.
 
@@ -355,61 +143,13 @@ The bar is intentionally minimal — 4 pixels tall, no text, no percentage. It c
 
 Progressive loading means progressive error handling. When one balance call fails, it shouldn't affect the other seven cards.
 
-```tsx
-function DeviceCard({ device, isLoadingBalance, onRetry }: Props) {
-  if (device.balanceError) {
-    return (
-      <div className="device-card">
-        <h3>{device.name}</h3>
-        <div className="text-red-500 text-sm">
-          Unable to load balance
-          <button
-            onClick={() => onRetry(device.id)}
-            className="ml-2 text-blue-500 underline"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="device-card">
-      <h3>{device.name}</h3>
-      {isLoadingBalance ? (
-        <BalanceSpinner />
-      ) : (
-        <BalanceDisplay value={device.balance} />
-      )}
-    </div>
-  );
-}
-```
+Each device card component handles three distinct states on its own. If the device has a balance error flag set, the card renders the device name alongside an error message and a retry button that, when clicked, triggers a new balance fetch for that specific device. If the balance is still loading (indicated by the loading flag), the card shows the device name with a small spinner in the balance area. Otherwise, the card renders the device name and the actual balance value. This means a failed balance for one device is contained entirely within that card's display.
 
 Each card independently handles its own error state. The user sees seven successful balances and one "Unable to load" message with a retry button — far better than a full-page error for a partial failure.
 
 We paired this with **exponential backoff** for automatic retries in the service layer:
 
-```typescript
-async function fetchWithRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3
-): Promise<T> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      if (attempt === maxRetries) throw error;
-
-      // Exponential backoff: 1s, 2s, 3s
-      const delay = (attempt + 1) * 1000;
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  throw new Error('Unreachable');
-}
-```
+The retry utility wraps any asynchronous operation and attempts it up to a configurable maximum number of times (defaulting to three retries). On the first attempt, it runs immediately. If it fails and retries remain, it waits with a linearly increasing delay — one second before the second attempt, two seconds before the third, and three seconds before the fourth. If the final attempt still fails, the error is thrown up to the calling code. This pattern absorbs transient network hiccups and brief service outages without manual intervention.
 
 The service layer retries automatically. Only if all retries fail does the error bubble up to the component.
 
@@ -419,30 +159,11 @@ The service layer retries automatically. Only if all retries fail does the error
 
 Progressive loading means frequent state updates — each balance that arrives triggers a `setDevices` call. Without memoization, this can cause every card to re-render when a single balance arrives.
 
-```typescript
-// Memoize the device list to prevent unnecessary re-renders
-const sortedDevices = useMemo(
-  () => devices.sort((a, b) => a.name.localeCompare(b.name)),
-  [devices]
-);
+We memoize the sorted device list so that it is only recomputed when the underlying device data actually changes, not on every render cycle. Similarly, callback functions passed down to child components (such as the retry handler) are memoized so that they maintain a stable reference between renders, preventing unnecessary re-renders of the children that receive them.
 
-// Memoize callbacks passed to child components
-const handleRetry = useCallback(
-  (deviceId: string) => retryBalance(deviceId),
-  [retryBalance]
-);
-```
+We also wrapped the device card component in a memoization boundary. This means each card only re-renders when its own specific props change — not when a sibling card's data updates.
 
-We also made `DeviceCard` a memoized component:
-
-```typescript
-const DeviceCard = React.memo(function DeviceCard({ device, isLoadingBalance, onRetry }: Props) {
-  // Only re-renders when THIS device's data changes
-  // ...
-});
-```
-
-With `React.memo`, updating device #3's balance only re-renders card #3 — not all eight cards. Combined with the `Set<string>` loading pattern, each card's props change only when its own data changes.
+With this memoization, updating device #3's balance only re-renders card #3 — not all eight cards. Combined with the `Set<string>` loading pattern, each card's props change only when its own data changes.
 
 ---
 

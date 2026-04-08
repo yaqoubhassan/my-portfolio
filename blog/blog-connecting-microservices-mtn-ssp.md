@@ -48,27 +48,7 @@ Each of these services lives behind a different base URL, expects different head
 
 Early on, we made a decision that paid dividends throughout the project: **every API gets its own service class**.
 
-```typescript
-// Simplified pattern — each service encapsulates its own concerns
-class BroadbandService {
-  private baseUrl: string;
-  private cache: Map<string, { data: any; timestamp: number }>;
-
-  async getFlexiCalculation(params: FlexiParams, token: string) {
-    const cacheKey = this.buildCacheKey(params);
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
-
-    const response = await axios.get(`${this.baseUrl}/flexi-calculator`, {
-      headers: this.buildHeaders(token),
-      params,
-    });
-
-    this.setCache(cacheKey, response.data, TTL_30_MIN);
-    return response.data;
-  }
-}
-```
+We designed each service as a self-contained class responsible for all communication with its corresponding backend. For example, the broadband service class holds its own base URL and header configuration, and exposes methods for each operation. When a method is called, it first checks an in-memory cache using a deterministic key derived from the request parameters. If a valid cached result exists, it returns immediately without making a network request. Otherwise, it issues the HTTP call with the appropriate authentication headers, stores the response in the cache with a thirty-minute time-to-live, and returns the data.
 
 Each service class owns:
 - Its base URL and header configuration
@@ -84,34 +64,7 @@ We considered Redux Toolkit and RTK Query. For a portal that aggregates data fro
 
 React Context + custom hooks gave us co-located state that was easy to reason about:
 
-```typescript
-// Each feature gets a hook that manages its own data lifecycle
-function useBroadbandAccounts() {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [loadingBalances, setLoadingBalances] = useState<Set<string>>(new Set());
-
-  const loadBalancesInBackground = useCallback(async (deviceList: Device[]) => {
-    // Load balances in parallel, updating state as each resolves
-    for (const device of deviceList) {
-      setLoadingBalances(prev => new Set(prev).add(device.id));
-      try {
-        const balance = await broadbandService.getBalance(device.msisdn, token);
-        setDevices(prev => prev.map(d =>
-          d.id === device.id ? { ...d, balance } : d
-        ));
-      } finally {
-        setLoadingBalances(prev => {
-          const next = new Set(prev);
-          next.delete(device.id);
-          return next;
-        });
-      }
-    }
-  }, [token]);
-
-  return { devices, loadingBalances, loadBalancesInBackground };
-}
-```
+Each feature area gets its own custom hook that manages its data lifecycle. The broadband accounts hook, for instance, maintains a list of devices and a set that tracks which devices currently have balance requests in flight. When the hook kicks off background balance loading, it iterates through the device list one by one. For each device, it adds that device's identifier to the loading set, calls the broadband service to fetch the balance, and then updates just that one device in the list with the returned data. Once the call completes (whether it succeeds or fails), the device is removed from the loading set. This means each device card in the UI can independently show its own loading state.
 
 This pattern — **progressive data loading** — was critical for the broadband page. A user might have 8+ paired numbers, each requiring a separate balance API call. Instead of blocking the UI until all balances load, we render the device list immediately and fill in balances as they arrive. The `loadingBalances` Set tracks exactly which cards are still fetching, so each card can show its own spinner independently.
 
@@ -150,19 +103,7 @@ Midway through the project, a security scan flagged several areas for improvemen
 
 We implemented a context-aware sanitization utility that handles different input types differently:
 
-```typescript
-// Context-aware sanitization — different rules for different inputs
-export function sanitizeInput(value: string, context: 'general' | 'email' | 'tel' | 'password'): string {
-  if (context === 'tel') {
-    return value.replace(/[^\d+\-() ]/g, '');  // Only digits and phone chars
-  }
-  if (context === 'email') {
-    return value.replace(/[^\w.@+\-]/g, '');    // Email-safe characters only
-  }
-  // General: strip XSS vectors
-  return stripXSSPatterns(value);
-}
-```
+The sanitizer accepts a context parameter that determines which cleaning strategy to apply. For telephone inputs, it uses an allowlist approach, stripping everything except digits, plus signs, hyphens, parentheses, and spaces. For email inputs, it permits only alphanumeric characters, periods, the at symbol, plus signs, and hyphens. For general free-text inputs, it runs a more aggressive multi-pass process designed to neutralize cross-site scripting vectors.
 
 The general sanitizer runs multiple passes to catch nested injection attempts — `<scr<script>ipt>` patterns that survive a single strip pass. It detects and neutralizes:
 - `<script>` tags
@@ -174,18 +115,7 @@ The general sanitizer runs multiple passes to catch nested injection attempts �
 
 Beyond input fields, we added sanitization at the **API request boundary**. Before any payload leaves the browser, it passes through a sanitizer that recursively walks the object tree and cleans every string value:
 
-```typescript
-function sanitizePayload<T>(payload: T): T {
-  if (typeof payload === 'string') return sanitizeInput(payload, 'general') as T;
-  if (Array.isArray(payload)) return payload.map(sanitizePayload) as T;
-  if (typeof payload === 'object' && payload !== null) {
-    return Object.fromEntries(
-      Object.entries(payload).map(([key, value]) => [key, sanitizePayload(value)])
-    ) as T;
-  }
-  return payload;
-}
-```
+The payload sanitizer works by recursively walking through any data structure before it is sent over the network. If it encounters a string, it runs the general sanitization function on it. If it encounters an array, it processes each element. If it encounters a nested object, it processes each value within that object. Primitive values like numbers and booleans pass through untouched. This ensures that every string in every outbound request is cleaned, regardless of how deeply nested it is.
 
 This was a **defense-in-depth** decision. Even if a component forgets to sanitize its inputs, the service layer catches it before it hits the wire.
 
@@ -193,12 +123,7 @@ This was a **defense-in-depth** decision. Even if a component forgets to sanitiz
 
 We discovered early that exposing raw MSISDNs (phone numbers) in URLs and component keys was a privacy risk. The solution: hash-based secure IDs.
 
-```typescript
-// Generate a stable, non-reversible identifier from sensitive data
-function generateSecureId(msisdn: string): string {
-  return hashFunction(msisdn + salt);
-}
-```
+We created a utility that takes a sensitive identifier (such as a subscriber phone number), combines it with an application-specific salt value, and runs it through a one-way hash function. The output is a stable, non-reversible string that consistently maps to the same subscriber but reveals nothing about the original identifier.
 
 This gave us stable identifiers for routing and caching without exposing subscriber phone numbers in the browser's address bar, dev tools, or session storage.
 
@@ -247,15 +172,7 @@ When you depend on 12 services, something is always failing. Our approach evolve
 
 ### Phase 1: Naive Try-Catch (Don't Do This)
 
-```typescript
-// What we started with — swallows errors, confuses users
-try {
-  const data = await service.getData();
-  setData(data);
-} catch {
-  setError("Something went wrong");
-}
-```
+Our first approach was a simple catch-all: wrap each service call in an error handler that, on any failure, displays a generic "something went wrong" message and moves on.
 
 The problem: "Something went wrong" tells the user nothing. And swallowed errors make debugging impossible.
 
@@ -263,14 +180,7 @@ The problem: "Something went wrong" tells the user nothing. And swallowed errors
 
 Each service class now transforms API errors into a consistent shape:
 
-```typescript
-interface ServiceError {
-  code: string;
-  message: string;
-  retryable: boolean;
-  service: string;
-}
-```
+Each service class now transforms raw API errors into a standardized error shape containing a code, a human-readable message, a flag indicating whether the error is transient and worth retrying, and the name of the originating service.
 
 Components can then make intelligent decisions: show a retry button for transient failures, show a specific message for business logic errors, and escalate unknown errors to the error boundary.
 
@@ -278,12 +188,7 @@ Components can then make intelligent decisions: show a retry button for transien
 
 For transient failures (network timeouts, 503s), we implemented automatic retry with exponential backoff:
 
-```
-Attempt 1: immediate
-Attempt 2: 1 second delay
-Attempt 3: 2 second delay
-Attempt 4: 3 second delay (give up)
-```
+The first attempt fires immediately. If it fails, the system waits one second before the second attempt, two seconds before the third, and three seconds before the fourth and final attempt. If all four attempts fail, the error is surfaced to the user.
 
 This recovered gracefully from the momentary blips that are inevitable when you're talking to a dozen services across different infrastructure.
 
@@ -293,27 +198,7 @@ This recovered gracefully from the momentary blips that are inevitable when you'
 
 We integrated **OpenTelemetry** from day one — not as an afterthought, but as a core architectural decision.
 
-```typescript
-// Instrumented from the start — traces, metrics, and logs
-const provider = new WebTracerProvider({
-  resource: new Resource({
-    [ATTR_SERVICE_NAME]: 'customer-portal',
-  }),
-});
-
-provider.addSpanProcessor(new BatchSpanProcessor(
-  new OTLPTraceExporter({ url: OTEL_TRACE_URL })
-));
-
-// Auto-instrument fetch, XHR, and document load
-registerInstrumentations({
-  instrumentations: [
-    new FetchInstrumentation({ propagateTraceHeaderCorsUrls: [allowedUrlRegex] }),
-    new XMLHttpRequestInstrumentation(),
-    new DocumentLoadInstrumentation(),
-  ],
-});
-```
+During application initialization, we set up a tracing provider that identifies all telemetry data as originating from the customer portal. Trace data is batched and exported to our observability backend via the OpenTelemetry protocol. We also registered automatic instrumentation for all outbound network requests (both modern fetch calls and legacy XMLHttpRequest calls) as well as the initial document load. The instrumentation is configured to propagate trace context headers to our allowed backend domains, ensuring that a single trace can follow a request from the browser all the way through to backend services.
 
 This gives us:
 - **Distributed traces** that follow a request from button click through the frontend, across the network, and into backend services
@@ -330,9 +215,7 @@ When a user reports "the complaints page is slow," we don't guess. We pull the t
 
 Instead of a single `isLoading` boolean, we use typed loading state:
 
-```typescript
-const [loadingBalances, setLoadingBalances] = useState<Set<string>>(new Set());
-```
+Rather than using a single boolean to represent loading state, we use a set data structure that holds the identifiers of whichever accounts are currently being fetched. This allows us to check whether any individual account is loading by testing membership in the set.
 
 Each account card manages its own loading state. When 8 accounts are loading balances in parallel, the user sees progress on each card individually rather than staring at a blank screen.
 
@@ -354,10 +237,7 @@ When a user renames a broadband device, we update the UI immediately and sync to
 
 Not every feature was ready for every environment. We implemented environment-based feature flags:
 
-```typescript
-const ENABLE_BUNDLE_PURCHASE = import.meta.env.VITE_ENABLE_BUNDLE_PURCHASE === 'true';
-const ENABLE_SUBSCRIPTIONS = import.meta.env.VITE_ENABLE_SUBSCRIPTIONS === 'true';
-```
+At build time, the application reads environment variables to determine which features should be active. Each feature flag is a simple boolean derived from the build environment configuration. If the variable is set to a truthy value, the feature is enabled; otherwise, it is hidden from users entirely.
 
 This let us:
 - Deploy to staging with features enabled for QA

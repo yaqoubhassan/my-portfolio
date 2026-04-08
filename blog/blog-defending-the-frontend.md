@@ -36,31 +36,7 @@ The insight was that **different input types have different threat models**:
 
 So we built a context-aware sanitizer:
 
-```typescript
-type InputContext = 'general' | 'email' | 'tel' | 'password';
-
-function sanitizeInput(value: string, context: InputContext): string {
-  if (!value) return value;
-
-  switch (context) {
-    case 'tel':
-      // Allowlist: only characters that belong in a phone number
-      return value.replace(/[^\d+\-() ]/g, '');
-
-    case 'email':
-      // Allowlist: only characters that belong in an email address
-      return value.replace(/[^\w.@+\-]/g, '');
-
-    case 'password':
-      // Passwords are never rendered as HTML — only strip null bytes
-      return value.replace(/\0/g, '');
-
-    case 'general':
-    default:
-      return sanitizeGeneralInput(value);
-  }
-}
-```
+The sanitization function accepts two inputs: the raw value and a context indicator that specifies what kind of data is expected. Based on the context, it applies a different cleaning strategy. For telephone inputs, it uses an allowlist that permits only digits, plus signs, hyphens, parentheses, and spaces — stripping everything else. For email inputs, the allowlist permits alphanumeric characters, periods, the at symbol, plus signs, and hyphens. For password inputs, it performs only minimal cleaning (removing null bytes), since passwords are never rendered as markup. For general free-text inputs, it delegates to a more thorough multi-stage cleaning process described below.
 
 The phone and email sanitizers use **allowlists** — they define what's permitted and reject everything else. This is fundamentally more secure than blocklists (trying to enumerate everything dangerous), because you can't bypass an allowlist with a novel encoding.
 
@@ -72,56 +48,21 @@ The general sanitizer runs in stages:
 
 **Stage 1: Detect known XSS patterns**
 
-```typescript
-const XSS_PATTERNS = [
-  /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-  /javascript\s*:/gi,
-  /data\s*:[^,]*;base64/gi,
-  /vbscript\s*:/gi,
-  /on\w+\s*=/gi,  // Event handlers: onerror=, onload=, onclick=, etc.
-];
-
-function containsXSSPattern(value: string): boolean {
-  return XSS_PATTERNS.some(pattern => pattern.test(value));
-}
-```
+The first stage checks the input against a list of known dangerous patterns. These patterns match script tag blocks (including those with content between opening and closing tags), protocol-based injection vectors such as inline scripting URIs and base64 data URIs, legacy scripting protocol references, and inline event handler attributes (the kind that trigger actions on error, load, click, and similar browser events). If any of these patterns are detected, the input is flagged for aggressive cleaning.
 
 **Stage 2: Strip HTML tags — multiple passes**
 
 This is where a single-pass approach fails. Consider this payload:
 
-```
-<scr<script>ipt>alert('xss')</scr</script>ipt>
-```
+Consider a payload where script tags are nested inside each other — the inner tags are wrapped within fragments of outer tags. A single pass of tag removal strips the inner tags, but the remaining fragments reassemble into a valid, dangerous tag. A second pass catches that reassembled tag.
 
-A single pass of `/<[^>]*>/g` strips the inner `<script>` and `</script>` tags, but the remaining characters reassemble into `<script>alert('xss')</script>`. A second pass catches it.
-
-We run the strip operation in a loop until the output stabilizes:
-
-```typescript
-function stripHTMLTags(value: string): string {
-  let result = value;
-  let previous = '';
-
-  // Keep stripping until no more tags are found
-  while (result !== previous) {
-    previous = result;
-    result = result.replace(/<[^>]*>/g, '');
-  }
-
-  return result;
-}
-```
+To handle this, the tag stripping operation runs in a loop. Each iteration removes all angle-bracket-delimited content. The loop continues until the output stabilizes — meaning a pass produces no changes, confirming that no further tags can be reconstructed from leftover fragments.
 
 **Stage 3: Character allowlist for high-risk fields**
 
 For fields that will be rendered in the UI or sent to an API (not passwords), we apply a final character allowlist:
 
-```typescript
-// Allow word characters, whitespace, and common punctuation
-const SAFE_CHARS = /[^\w\s\-.,!?()@#&:;'"\/]/g;
-value = value.replace(SAFE_CHARS, '');
-```
+For fields that will be rendered in the UI or transmitted to an API, a final character-level allowlist is applied. This allowlist permits word characters, whitespace, hyphens, common punctuation (periods, commas, exclamation marks, question marks, parentheses, at signs, hash symbols, ampersands, colons, semicolons, quotes), and forward slashes. Anything outside this set is removed.
 
 This is intentionally aggressive. If a complaint description gets slightly trimmed, that's acceptable. If an XSS payload gets through, it's not.
 
@@ -133,49 +74,13 @@ Input-level sanitization relies on every component remembering to call `sanitize
 
 So we added a second layer: **sanitize the entire request payload** before it leaves the browser.
 
-```typescript
-function sanitizePayload<T>(payload: T): T {
-  // Base case: strings get sanitized
-  if (typeof payload === 'string') {
-    return sanitizeInput(payload, 'general') as unknown as T;
-  }
-
-  // Recurse into arrays
-  if (Array.isArray(payload)) {
-    return payload.map(item => sanitizePayload(item)) as unknown as T;
-  }
-
-  // Recurse into objects
-  if (typeof payload === 'object' && payload !== null) {
-    const sanitized: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(payload)) {
-      sanitized[key] = sanitizePayload(value);
-    }
-    return sanitized as T;
-  }
-
-  // Numbers, booleans, null — pass through
-  return payload;
-}
-```
+The payload sanitizer is a recursive function that processes any data structure. At the base case, if it encounters a string, it runs the general-context sanitization on it. If it encounters an array, it processes each element recursively. If it encounters an object, it iterates over every key-value pair and recursively sanitizes each value, constructing a cleaned copy of the object. Non-string primitives like numbers, booleans, and null values pass through unchanged.
 
 This function recursively walks any object tree — nested objects, arrays of objects, arrays of strings — and sanitizes every string value it finds.
 
 We integrated this into the service layer so it runs automatically:
 
-```typescript
-class ApiService {
-  async post<T>(endpoint: string, data: unknown, token: string): Promise<T> {
-    const sanitizedData = sanitizePayload(data);
-    const response = await axios.post(
-      `${this.baseUrl}${endpoint}`,
-      sanitizedData,
-      { headers: this.buildHeaders(token) }
-    );
-    return response.data;
-  }
-}
-```
+We integrated this directly into the base service class so it runs automatically on every outbound request. Whenever any service method issues a POST request, the payload is passed through the recursive sanitizer before being sent over the network. The calling code does not need to remember to sanitize — it happens transparently at the service layer.
 
 **The key insight**: this is defense-in-depth. Input sanitization is the first wall. Payload sanitization is the second. If an attacker finds a way to bypass one — maybe through a dynamically generated field that skips the form sanitizer — the payload sanitizer catches it at the exit.
 
@@ -202,26 +107,7 @@ Phone numbers are personally identifiable information. Exposing them in the brow
 
 We replaced raw phone numbers with hash-based secure identifiers:
 
-```typescript
-function generateSecureId(identifier: string): string {
-  // One-way hash: you can't reverse it to get the phone number
-  return cyrb53Hash(identifier + APPLICATION_SALT).toString(36);
-}
-
-// A fast, non-cryptographic hash suitable for identifiers (not security)
-function cyrb53Hash(str: string, seed: number = 0): number {
-  let h1 = 0xdeadbeef ^ seed;
-  let h2 = 0x41c6ce57 ^ seed;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
-  h2 = Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
-}
-```
+The secure identifier generator takes a raw identifier (such as a phone number), concatenates it with an application-specific salt, and feeds the result through a fast, non-cryptographic hash function. The hash function processes each character of the input through a series of mathematical mixing operations using large prime multipliers, producing a numeric output with good distribution properties. That numeric result is then converted to a compact base-36 string representation, yielding a short, opaque token like "k7f2m9x" that is stable (the same input always produces the same output) but not practically reversible to the original identifier.
 
 Now the URL looks like `/accounts/k7f2m9x/details` — a meaningless string that maps stably to the same subscriber but reveals nothing about them.
 
@@ -231,20 +117,7 @@ Now the URL looks like `/accounts/k7f2m9x/details` — a meaningless string that
 
 The frontend maintains an in-memory mapping from secure IDs to actual identifiers. This map lives only in JavaScript memory — not in storage, not in URLs, not in logs. When a component needs the real phone number (for an API call), it looks up the secure ID in the map.
 
-```typescript
-// In-memory only — never persisted to storage
-const idMap = new Map<string, string>();
-
-function registerIdentifier(raw: string): string {
-  const secureId = generateSecureId(raw);
-  idMap.set(secureId, raw);
-  return secureId;
-}
-
-function resolveIdentifier(secureId: string): string | undefined {
-  return idMap.get(secureId);
-}
-```
+The frontend maintains a lookup table in memory that maps each hashed identifier back to the original value. When a new identifier is encountered, it is hashed and the mapping is stored in this table. When a component needs the real identifier for an API call, it looks up the hash in the table. Crucially, this table exists only in runtime memory — it is never written to browser storage, URLs, or logs.
 
 On logout, the map is cleared along with all other session data.
 
@@ -258,9 +131,7 @@ The final layer isn't in React at all — it's in the Nginx configuration and HT
 
 An authenticated portal has no business appearing in Google results. We added:
 
-```nginx
-add_header X-Robots-Tag "noindex, noarchive, nosnippet" always;
-```
+At the web server level, we configured a response header that instructs search engines not to index the page, not to cache it, and not to display snippets from it. This directive is applied to all responses, including error pages.
 
 This tells search engines: don't index this page, don't cache it, don't show snippets. The `always` directive ensures the header is sent even on error responses.
 
@@ -275,28 +146,9 @@ Every outbound API request includes:
 
 In the Vite build configuration, we strip anything that could help an attacker understand the application:
 
-```typescript
-// Production build config
-{
-  minify: 'terser',
-  terserOptions: {
-    compress: {
-      drop_console: true,     // Remove all console.* calls
-      drop_debugger: true,    // Remove debugger statements
-    },
-  },
-  sourcemap: false,           // No source maps in production
-}
-```
+The production build pipeline is configured to aggressively minify all output using an advanced minifier. During compression, all console logging statements and debugger breakpoints are stripped entirely so they cannot leak internal state. Source maps are disabled in production builds, preventing attackers from easily reconstructing the original source structure.
 
-And in the application entry point:
-
-```typescript
-// Disable React DevTools in production
-if (typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object') {
-  window.__REACT_DEVTOOLS_GLOBAL_HOOK__.inject = function () {};
-}
-```
+Additionally, at the application entry point, we detect and neutralize browser developer tool hooks for the UI framework. This prevents casual inspection of the component tree and internal state through browser extensions in the production environment.
 
 This doesn't prevent a determined attacker — they can still read minified code. But it raises the effort bar and removes the low-hanging fruit of console logs leaking internal state.
 
@@ -308,68 +160,15 @@ Security code that isn't tested is decoration. We wrote tests that cover:
 
 ### Known XSS Payloads
 
-```typescript
-describe('sanitizeInput', () => {
-  it('strips basic script tags', () => {
-    expect(sanitizeInput('<script>alert("xss")</script>', 'general'))
-      .not.toContain('<script>');
-  });
-
-  it('catches nested injection', () => {
-    const nested = '<scr<script>ipt>alert("xss")</scr</script>ipt>';
-    const result = sanitizeInput(nested, 'general');
-    expect(result).not.toContain('<script>');
-    expect(result).not.toContain('</script>');
-  });
-
-  it('neutralizes event handlers', () => {
-    expect(sanitizeInput('<img onerror="alert(1)">', 'general'))
-      .not.toContain('onerror');
-  });
-
-  it('blocks javascript: URIs', () => {
-    expect(sanitizeInput('javascript:alert(1)', 'general'))
-      .not.toContain('javascript:');
-  });
-});
-```
+Our test suite for the general sanitizer verifies that it strips basic script tag injections, catches nested injection patterns where fragments reassemble into dangerous tags after a first cleaning pass, neutralizes inline event handler attributes embedded in markup, and blocks protocol-based injection URIs. Each test feeds a known attack payload into the sanitizer and asserts that no dangerous content survives in the output.
 
 ### Context-Specific Validation
 
-```typescript
-describe('phone sanitization', () => {
-  it('preserves valid phone characters', () => {
-    expect(sanitizeInput('+1 (555) 123-4567', 'tel'))
-      .toBe('+1 (555) 123-4567');
-  });
-
-  it('strips everything else', () => {
-    expect(sanitizeInput('+1<script>alert(1)</script>555', 'tel'))
-      .toBe('+1()155');  // Only digits, +, (), spaces survive
-  });
-});
-```
+For phone number sanitization, we test that legitimate phone formatting (digits, plus sign, parentheses, hyphens, spaces) is preserved intact, while injected markup is stripped down to only the characters that happen to fall within the phone allowlist. This confirms the allowlist approach works correctly even when attack content is mixed with valid data.
 
 ### Payload Recursion
 
-```typescript
-describe('sanitizePayload', () => {
-  it('sanitizes deeply nested strings', () => {
-    const payload = {
-      user: {
-        name: '<script>alert(1)</script>John',
-        addresses: [
-          { city: 'Accra<img onerror="hack()">' }
-        ],
-      },
-    };
-
-    const result = sanitizePayload(payload);
-    expect(JSON.stringify(result)).not.toContain('<script>');
-    expect(JSON.stringify(result)).not.toContain('onerror');
-  });
-});
-```
+The payload sanitizer tests verify that cleaning works at arbitrary nesting depth. We construct test objects with malicious strings buried inside nested objects and arrays, then confirm that after sanitization, no dangerous patterns survive anywhere in the serialized output. This ensures the recursive walk does not miss deeply nested values.
 
 ---
 
