@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from './hooks/useTheme';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/blog/:slug" element={<BlogPost />} />
           </Routes>
         </div>
+        <Analytics />
       </BrowserRouter>
     </ThemeProvider>
   );
