@@ -4,9 +4,10 @@ import Hero from '../components/Hero';
 
 const Stats = lazy(() => import('../components/Stats'));
 const About = lazy(() => import('../components/About'));
+const Projects = lazy(() => import('../components/Projects'));
+const FeaturedArticle = lazy(() => import('../components/FeaturedArticle'));
 const Experience = lazy(() => import('../components/Experience'));
 const Skills = lazy(() => import('../components/Skills'));
-const Projects = lazy(() => import('../components/Projects'));
 const Blog = lazy(() => import('../components/Blog'));
 const Contact = lazy(() => import('../components/Contact'));
 const Footer = lazy(() => import('../components/Footer'));
@@ -30,9 +31,10 @@ export default function Home() {
       <Suspense fallback={null}>
         <Stats />
         <About />
+        <Projects />
+        <FeaturedArticle />
         <Experience />
         <Skills />
-        <Projects />
         <Blog />
         <Contact />
         <Footer />

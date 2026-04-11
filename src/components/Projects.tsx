@@ -120,7 +120,7 @@ export default function Projects() {
           </h2>
         </motion.div>
 
-        {/* Featured projects */}
+        {/* Featured projects — entire card is clickable */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {projects
             .filter((p) => p.featured)
@@ -130,72 +130,96 @@ export default function Projects() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.5, delay: 0.2 + idx * 0.15 }}
-                className="group relative rounded-2xl overflow-hidden border hover:border-primary-500/30 transition-all duration-500"
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  borderColor: 'var(--border-primary)',
-                }}
+                className="relative"
               >
-                <div className="relative h-48 overflow-hidden">
-                  <img
-                    src={project.image}
-                    alt={project.title}
-                    loading="lazy"
-                    className="w-full h-full object-cover object-top-left group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div
-                    className="absolute inset-0"
+                {project.slug ? (
+                  <Link
+                    to={`/projects/${project.slug}`}
+                    className="group block rounded-2xl overflow-hidden border hover:border-primary-500/30 transition-all duration-500 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary-600/10"
                     style={{
-                      background: `linear-gradient(to top, var(--gradient-overlay-from), var(--gradient-overlay-via), transparent)`,
+                      backgroundColor: 'var(--bg-card)',
+                      borderColor: 'var(--border-primary)',
                     }}
-                  />
-                </div>
+                  >
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={project.image}
+                        alt={project.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover object-left-top group-hover:scale-105 transition-transform duration-700"
+                      />
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background: `linear-gradient(to top, var(--gradient-overlay-from), var(--gradient-overlay-via), transparent)`,
+                        }}
+                      />
+                      {/* Case study badge */}
+                      <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-primary-600/80 backdrop-blur-sm text-white text-[10px] font-medium flex items-center gap-1">
+                        Read Case Study <FiArrowRight size={10} />
+                      </div>
+                    </div>
 
-                <div className="p-6">
-                  <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                    {project.title}
-                  </h3>
-                  <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--text-muted)' }}>
-                    {project.description}
-                  </p>
+                    <div className="p-5 sm:p-6">
+                      <h3 className="text-xl font-bold mb-2 group-hover:text-primary-400 transition-colors" style={{ color: 'var(--text-primary)' }}>
+                        {project.title}
+                      </h3>
+                      <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--text-muted)' }}>
+                        {project.description}
+                      </p>
 
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {project.tags.map((tag) => (
-                      <span
-                        key={tag.name}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-300 bg-primary-600/10 border border-primary-500/20 rounded-full"
-                      >
-                        <tag.icon size={12} />
-                        {tag.name}
-                      </span>
-                    ))}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {project.tags.map((tag) => (
+                          <span
+                            key={tag.name}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-300 bg-primary-600/10 border border-primary-500/20 rounded-full"
+                          >
+                            <tag.icon size={12} />
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        {project.links.map((link) => (
+                          <span
+                            key={link.label}
+                            className="inline-flex items-center gap-1.5 text-sm"
+                            style={{ color: 'var(--text-muted)' }}
+                          >
+                            <FiExternalLink size={14} />
+                            {link.label}
+                          </span>
+                        ))}
+                        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-400 ml-auto group-hover:gap-2.5 transition-all">
+                          Case Study
+                          <FiArrowRight size={14} />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ) : (
+                  <div
+                    className="group rounded-2xl overflow-hidden border transition-all duration-500"
+                    style={{
+                      backgroundColor: 'var(--bg-card)',
+                      borderColor: 'var(--border-primary)',
+                    }}
+                  >
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={project.image}
+                        alt={project.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover object-left-top"
+                      />
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{project.title}</h3>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{project.description}</p>
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-4">
-                    {project.links.map((link) => (
-                      <a
-                        key={link.label}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-sm hover:text-primary-400 transition-colors"
-                        style={{ color: 'var(--text-muted)' }}
-                      >
-                        <FiExternalLink size={14} />
-                        {link.label}
-                      </a>
-                    ))}
-                    {project.slug && (
-                      <Link
-                        to={`/projects/${project.slug}`}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-400 hover:text-primary-300 transition-colors ml-auto"
-                      >
-                        Case Study
-                        <FiArrowRight size={14} />
-                      </Link>
-                    )}
-                  </div>
-                </div>
+                )}
               </motion.div>
             ))}
         </div>
